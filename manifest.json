@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Codeforces Contest Notifier",
+  "version": "1.0",
+  "description": "Get notified about all upcoming Codeforces contests at 12hr, 3hr, and 30min before start",
+  "permissions": [
+    "notifications",
+    "alarms",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://codeforces.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

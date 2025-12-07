@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 380px;
+      padding: 15px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    h2 {
+      margin: 0 0 10px 0;
+      color: white;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 15px;
+    }
+    
+    .contest-list {
+      max-height: 450px;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+    
+    .contest-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .contest-list::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+    }
+    
+    .contest-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.3);
+      border-radius: 3px;
+    }
+    
+    .contest-item {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 14px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: transform 0.2s, background 0.2s;
+    }
+    
+    .contest-item:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .contest-name {
+      font-weight: 600;
+      color: white;
+      margin-bottom: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    
+    .contest-time {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .time-remaining {
+      font-size: 11px;
+      color: #ffd54f;
+      font-weight: 600;
+    }
+    
+    .notifications {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .notification-badge {
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .notification-badge.sent {
+      background: rgba(76, 175, 80, 0.3);
+      border-color: rgba(76, 175, 80, 0.5);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+    }
+    
+    .refresh-btn {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      transition: all 0.2s;
+      backdrop-filter: blur(10px);
+    }
+    
+    .refresh-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    
+    .refresh-btn:active {
+      transform: translateY(0);
+    }
+    
+    .info {
+      background: rgba(255, 243, 205, 0.2);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.95);
+      margin-bottom: 15px;
+      border: 1px solid rgba(255, 243, 205, 0.3);
+      line-height: 1.4;
+    }
+    
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      gap: 10px;
+    }
+    
+    .stat-box {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .stat-number {
+      font-size: 24px;
+      font-weight: bold;
+      color: white;
+    }
+    
+    .stat-label {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <h2>🏆 Codeforces Contests</h2>
+  <div class="subtitle">Automatic notifications enabled</div>
+  
+  <div class="stats" id="stats">
+    <div class="stat-box">
+      <div class="stat-number" id="totalContests">-</div>
+      <div class="stat-label">Upcoming</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number" id="nextContest">-</div>
+      <div class="stat-label">Next in</div>
+    </div>
+  </div>
+  
+  <div class="info">
+    ⚡ Auto-checking every 15 minutes for new contests. Notifications at 12hr, 3hr, and 30min before start.
+  </div>
+  
+  <button class="refresh-btn" id="refreshBtn">🔄 Refresh Now</button>
+  
+  <div id="contestList" class="contest-list">
+    <div class="empty-state">Loading contests...</div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
