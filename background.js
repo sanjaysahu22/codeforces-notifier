@@ -1,14 +1,61 @@
 // background.js
 
-// Initialize on installation
+// ---------------------------
+//  EMAIL CONFIG
+// ---------------------------
+const RESEND_WORKER_URL = "https://codeforces-email-worker.sanjaysahu6243.workers.dev/send";
+
+// send email via Cloudflare Worker
+async function sendEmailThroughWorker({ to, subject, html, text }) {
+  try {
+    const resp = await fetch(RESEND_WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject, html, text })
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      console.warn("Email worker error:", data);
+      return { ok: false, data };
+    }
+    return { ok: true, data };
+  } catch (e) {
+    console.error("Failed to send email:", e);
+    return { ok: false, error: e.message };
+  }
+}
+
+// simple helpers
+function escapeHtml(str = "") {
+  return str.replace(/[&<>"']/g, m => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[m]));
+}
+
+function formatDate(time) {
+  return new Date(time).toLocaleString();
+}
+
+// ----------------------------------------------
+//   EXTENSION INITIALIZATION
+// ----------------------------------------------
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Codeforces Notifier installed');
-  // Check for contests every 15 minutes
+
+  // Run every 15 minutes
   chrome.alarms.create('scrapeContests', { periodInMinutes: 15 });
+
   scrapeAndScheduleContests();
 });
 
-// Listen for alarms
+// ----------------------------------------------
+//   ALARM LISTENER
+// ----------------------------------------------
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'scrapeContests') {
     scrapeAndScheduleContests();
@@ -17,12 +64,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Scrape contests page and schedule notifications
+// ----------------------------------------------
+//   SCRAPE & STORE CONTESTS
+// ----------------------------------------------
 async function scrapeAndScheduleContests() {
   try {
     console.log('Fetching Codeforces contests...');
     
-    // Use Codeforces API directly - more reliable than HTML scraping
     const response = await fetch('https://codeforces.com/api/contest.list');
     const data = await response.json();
     
@@ -31,7 +79,6 @@ async function scrapeAndScheduleContests() {
       return;
     }
     
-    // Get upcoming contests
     const contests = data.result
       .filter(c => c.phase === 'BEFORE')
       .map(c => ({
@@ -42,7 +89,6 @@ async function scrapeAndScheduleContests() {
     
     console.log(`Found ${contests.length} upcoming contests`);
     
-    // Get existing tracked contests
     const { trackedContests = {} } = await chrome.storage.local.get('trackedContests');
     
     const now = Date.now();
@@ -51,9 +97,7 @@ async function scrapeAndScheduleContests() {
     for (const contest of contests) {
       const { id, name, startTime } = contest;
       
-      // Only track future contests
       if (startTime > now) {
-        // Check if this is a new contest
         if (!trackedContests[id]) {
           console.log(`New contest found: ${name}`);
           trackedContests[id] = {
@@ -67,26 +111,22 @@ async function scrapeAndScheduleContests() {
           newContestsAdded = true;
         }
         
-        // Schedule notifications for this contest
         scheduleNotificationsForContest(contest, trackedContests[id]);
       }
     }
     
-    // Clean up old contests (started more than 24 hours ago)
-    const oneDayAgo = now - (24 * 60 * 60 * 1000);
+    // remove expired contests
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
     for (const id in trackedContests) {
       if (trackedContests[id].startTime < oneDayAgo) {
         delete trackedContests[id];
-        // Clear associated alarms
         clearAlarmsForContest(id);
       }
     }
     
-    // Save updated contests
     await chrome.storage.local.set({ trackedContests });
     
     if (newContestsAdded) {
-      // Show notification for new contests
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icon128.png',
@@ -101,10 +141,10 @@ async function scrapeAndScheduleContests() {
   }
 }
 
-
-
-// Schedule notifications for a specific contest
-function scheduleNotificationsForContest(contest, notificationState) {
+// ----------------------------------------------
+//   SCHEDULE NOTIFICATIONS
+// ----------------------------------------------
+function scheduleNotificationsForContest(contest, state) {
   const { id, startTime } = contest;
   const now = Date.now();
   
@@ -114,19 +154,20 @@ function scheduleNotificationsForContest(contest, notificationState) {
     { key: '30min', time: 30 * 60 * 1000, label: '30 minutes' }
   ];
   
-  intervals.forEach(({ key, time, label }) => {
+  intervals.forEach(({ key, time }) => {
     const notifyTime = startTime - time;
     
-    // Schedule if time hasn't passed and notification hasn't been sent
-    if (notifyTime > now && !notificationState[key]) {
+    if (notifyTime > now && !state[key]) {
       const alarmName = `notify_${id}_${key}`;
       chrome.alarms.create(alarmName, { when: notifyTime });
-      console.log(`Scheduled ${label} notification for contest ${id} at ${new Date(notifyTime)}`);
+      console.log(`Scheduled ${key} notification for ${id} at`, new Date(notifyTime));
     }
   });
 }
 
-// Handle notification trigger
+// ----------------------------------------------
+//   HANDLE NOTIFICATION & SEND EMAIL
+// ----------------------------------------------
 async function handleNotification(alarmName) {
   const parts = alarmName.split('_');
   const contestId = parseInt(parts[1]);
@@ -135,26 +176,43 @@ async function handleNotification(alarmName) {
   try {
     const { trackedContests = {} } = await chrome.storage.local.get('trackedContests');
     const contest = trackedContests[contestId];
-    
     if (!contest) return;
     
-    const timeLabels = {
+    const labels = {
       '12hr': '12 hours',
       '3hr': '3 hours',
       '30min': '30 minutes'
     };
     
-    // Send notification
+    // Show browser notification
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon128.png',
       title: 'Codeforces Contest Reminder',
-      message: `"${contest.name}" starts in ${timeLabels[intervalKey]}!`,
+      message: `"${contest.name}" starts in ${labels[intervalKey]}!`,
       priority: 2,
-      requireInteraction: intervalKey === '30min' // Keep 30min notification until dismissed
+      requireInteraction: intervalKey === '30min'
     });
-    
-    // Mark notification as sent
+
+    // ------------------------------------------
+    // SEND EMAIL NOTIFICATION IF ENABLED
+    // ------------------------------------------
+    chrome.storage.local.get(["emailEnabled", "userEmail"], async (res) => {
+      if (res.emailEnabled && res.userEmail) {
+        const to = res.userEmail;
+        const subject = `Codeforces Reminder — ${contest.name}`;
+        const html = `
+          <h2>${escapeHtml(contest.name)}</h2>
+          <p>Starts in <b>${labels[intervalKey]}</b>.</p>
+          <p><b>Start Time:</b> ${formatDate(contest.startTime)}</p>
+          <p>Visit: <a href="https://codeforces.com/contest/${contestId}">Contest Link</a></p>
+        `;
+
+        await sendEmailThroughWorker({ to, subject, html });
+      }
+    });
+
+    // mark sent
     contest[intervalKey] = true;
     trackedContests[contestId] = contest;
     await chrome.storage.local.set({ trackedContests });
@@ -164,7 +222,9 @@ async function handleNotification(alarmName) {
   }
 }
 
-// Clear all alarms for a contest
+// ----------------------------------------------
+// REMOVE OLD ALARMS
+// ----------------------------------------------
 async function clearAlarmsForContest(contestId) {
   const alarms = await chrome.alarms.getAll();
   alarms.forEach(alarm => {
@@ -174,16 +234,41 @@ async function clearAlarmsForContest(contestId) {
   });
 }
 
-// Listen for messages from popup
+// ----------------------------------------------
+// POPUP MESSAGES
+// ----------------------------------------------
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Received message:', request);
-  
-  if (request.action === 'scrapeNow') {
-    console.log('Manual scrape triggered');
-    scrapeAndScheduleContests().then(() => {
-      sendResponse({ success: true });
+  if (request.action === 'sendTestEmail') {
+    const to = request.email;
+    const subject = 'Codeforces Notifier — test email';
+    const html = `<p>This is a test email from Codeforces Notifier extension.</p>`;
+    sendEmailThroughWorker({ to, subject, html, contestId: 'test' }).then((r) => {
+      sendResponse({ ok: r.ok });
     });
-    return true; // Keep channel open for async response
+    return true; // async
   }
 });
 
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log("Received message:", request);
+
+  // manual refresh
+  if (request.action === "scrapeNow") {
+    scrapeAndScheduleContests().then(() => sendResponse({ success: true }));
+    return true;
+  }
+
+  // test email
+  if (request.action === "sendTestEmail") {
+    const subject = "Codeforces Notifier — Test Email";
+    const html = `<p>Your test email was sent successfully.</p>`;
+
+    sendEmailThroughWorker({
+      to: request.email,
+      subject,
+      html
+    }).then(() => sendResponse({ ok: true }));
+
+    return true;
+  }
+});

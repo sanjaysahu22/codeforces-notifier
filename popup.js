@@ -7,13 +7,47 @@ document.addEventListener('DOMContentLoaded', function() {
     
 
     document.getElementById('contestList').innerHTML = '<div class="empty-state">Refreshing...</div>';
+    const userEmailInput = document.getElementById('userEmail');
+    const saveEmailBtn = document.getElementById('saveEmailBtn');
+    const testEmailBtn = document.getElementById('testEmailBtn');
+    const emailEnabledCheckbox = document.getElementById('emailEnabled');
 
     try {
       await chrome.runtime.sendMessage({ action: 'scrapeNow' });
     } catch (e) {
       console.log('Message sending note:', e);
     }
-    
+    chrome.storage.local.get(['userEmail','emailEnabled'], (res) => {
+    if (res.userEmail) userEmailInput.value = res.userEmail;
+    emailEnabledCheckbox.checked = !!res.emailEnabled;
+  });
+
+  saveEmailBtn.addEventListener('click', () => {
+    const email = userEmailInput.value.trim();
+    chrome.storage.local.set({ userEmail: email }, () => {
+      // small UI feedback
+      saveEmailBtn.textContent = 'Saved';
+      setTimeout(() => saveEmailBtn.textContent = 'Save', 1200);
+    });
+  });
+
+    emailEnabledCheckbox.addEventListener('change', () => {
+    chrome.storage.local.set({ emailEnabled: emailEnabledCheckbox.checked });
+  });
+
+  testEmailBtn.addEventListener('click', async () => {
+    const email = userEmailInput.value.trim();
+    if (!email) {
+      testEmailBtn.textContent = 'Enter email';
+      setTimeout(() => testEmailBtn.textContent = 'Send test', 1200);
+      return;
+    }
+    // Ask background to send a test email (background will call worker)
+    chrome.runtime.sendMessage({ action: 'sendTestEmail', email }, (resp) => {
+      testEmailBtn.textContent = 'Sent';
+      setTimeout(() => testEmailBtn.textContent = 'Send test', 1400);
+    });
+  });
     setTimeout(() => {
       loadContests();
     }, 2000);

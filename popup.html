@@ -194,10 +194,18 @@
     </div>
   </div>
   
-  <div class="info">
-    ⚡ Auto-checking every 15 minutes for new contests. Notifications at 12hr, 3hr, and 30min before start.
+ <div class="info" id="emailSettings">
+  <label style="display:block; margin-bottom:8px; font-weight:600;">Email notifications</label>
+  <input id="userEmail" type="email" placeholder="your.email@example.com" style="width:100%; padding:8px; border-radius:6px; border:none; margin-bottom:8px;">
+  <div style="display:flex; gap:8px;">
+    <button id="saveEmailBtn" class="refresh-btn" style="flex:1; padding:8px;">Save</button>
+    <button id="testEmailBtn" class="refresh-btn" style="flex:1; padding:8px;">Send test</button>
   </div>
-  
+  <label style="font-size:12px; opacity:0.9; margin-top:6px;">
+    <input id="emailEnabled" type="checkbox"> Enable email notifications
+  </label>
+</div>
+
   <button class="refresh-btn" id="refreshBtn">🔄 Refresh Now</button>
   
   <div id="contestList" class="contest-list">
